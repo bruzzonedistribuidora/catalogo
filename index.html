@@ -1,0 +1,2300 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gestor de Catálogos - Bruzzone Distribuidora</title>
+    
+    <!-- Librerías -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-storage-compat.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+            padding-bottom: 80px;
+        }
+        
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+        
+        /* Header */
+        .header {
+            background: rgba(255,255,255,0.95);
+            padding: 25px 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .header-logo {
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            border-radius: 12px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2em;
+        }
+        
+        .header h1 {
+            color: #1a1a2e;
+            font-size: 1.8em;
+            font-weight: 700;
+        }
+        
+        .header p {
+            color: #666;
+            margin-top: 5px;
+        }
+        
+        .header-right {
+            display: flex;
+            gap: 10px;
+        }
+        
+        /* Tabs */
+        .tabs {
+            display: flex;
+            gap: 10px;
+            background: rgba(255,255,255,0.95);
+            padding: 15px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+            margin-bottom: 25px;
+            overflow-x: auto;
+        }
+        
+        .tab-btn {
+            padding: 12px 25px;
+            border: none;
+            background: #f0f0f0;
+            color: #666;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            transition: all 0.3s;
+            white-space: nowrap;
+            font-size: 0.95em;
+        }
+        
+        .tab-btn.active {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .tab-btn:hover:not(.active) {
+            background: #e0e0e0;
+        }
+        
+        /* Content Cards */
+        .content {
+            display: none;
+            background: rgba(255,255,255,0.95);
+            padding: 30px;
+            border-radius: 15px;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.1);
+        }
+        
+        .content.active {
+            display: block;
+            animation: fadeIn 0.3s;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        /* Formularios */
+        .form-section {
+            background: #f8f9fa;
+            padding: 25px;
+            border-radius: 12px;
+            margin-bottom: 20px;
+        }
+        
+        .form-section h3 {
+            color: #1a1a2e;
+            margin-bottom: 20px;
+            font-size: 1.3em;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 20px;
+        }
+        
+        .form-group {
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+        }
+        
+        .form-group label {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+        
+        .form-group input,
+        .form-group textarea,
+        .form-group select {
+            padding: 12px 15px;
+            border: 2px solid #e0e0e0;
+            border-radius: 8px;
+            font-size: 1em;
+            transition: all 0.3s;
+            font-family: inherit;
+        }
+        
+        .form-group input:focus,
+        .form-group textarea:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .form-group textarea {
+            resize: vertical;
+            min-height: 80px;
+        }
+        
+        /* Botones */
+        .btn {
+            padding: 12px 25px;
+            border: none;
+            border-radius: 10px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s;
+            font-size: 1em;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            justify-content: center;
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.4);
+        }
+        
+        .btn-primary:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(102, 126, 234, 0.5);
+        }
+        
+        .btn-secondary {
+            background: #6c757d;
+            color: white;
+        }
+        
+        .btn-secondary:hover {
+            background: #5a6268;
+        }
+        
+        .btn-success {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+            color: white;
+        }
+        
+        .btn-success:hover {
+            transform: translateY(-2px);
+        }
+        
+        .btn-danger {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+            color: white;
+        }
+        
+        .btn-danger:hover {
+            background: linear-gradient(135deg, #d32f2f 0%, #c62828 100%);
+        }
+        
+        /* Upload de imágenes */
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 12px;
+            padding: 40px 20px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+            margin-bottom: 20px;
+        }
+        
+        .upload-area:hover {
+            border-color: #764ba2;
+            background: #f0f2ff;
+        }
+        
+        .upload-area.dragover {
+            border-color: #4caf50;
+            background: #e8f5e9;
+        }
+        
+        .upload-icon {
+            font-size: 4em;
+            margin-bottom: 15px;
+        }
+        
+        .upload-options {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            flex-wrap: wrap;
+            margin-top: 20px;
+        }
+        
+        /* Preview de logo */
+        .logo-preview {
+            max-width: 300px;
+            max-height: 200px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+            margin-top: 15px;
+        }
+        
+        /* Grid de productos */
+        .products-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 20px;
+        }
+        
+        .product-card {
+            background: white;
+            border: 2px solid #e0e0e0;
+            border-radius: 12px;
+            padding: 15px;
+            cursor: pointer;
+            transition: all 0.3s;
+            position: relative;
+        }
+        
+        .product-card:hover {
+            border-color: #667eea;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.2);
+        }
+        
+        .product-card.selected {
+            border-color: #4caf50;
+            background: #f1f8f4;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .product-card.selected::after {
+            content: '✓';
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            width: 30px;
+            height: 30px;
+            background: #4caf50;
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        .product-image {
+            width: 100%;
+            height: 150px;
+            object-fit: contain;
+            border-radius: 8px;
+            background: #f8f9fa;
+            margin-bottom: 10px;
+        }
+        
+        .product-image.no-image {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 3em;
+            color: #ccc;
+        }
+        
+        .product-name {
+            font-weight: 600;
+            color: #333;
+            margin-bottom: 5px;
+            font-size: 0.9em;
+        }
+        
+        .product-code {
+            color: #666;
+            font-size: 0.8em;
+            margin-bottom: 8px;
+        }
+        
+        .product-price {
+            color: #4caf50;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+        
+        /* Vista previa del catálogo */
+        .catalog-preview {
+            background: white;
+            padding: 40px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+            max-width: 210mm;
+            margin: 0 auto;
+        }
+        
+        .preview-page {
+            background: white;
+            padding: 20px;
+            margin-bottom: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            page-break-after: always;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 3px solid #667eea;
+            padding-bottom: 20px;
+            margin-bottom: 30px;
+        }
+        
+        .preview-logo {
+            max-width: 150px;
+            max-height: 80px;
+        }
+        
+        .preview-info {
+            text-align: right;
+        }
+        
+        .preview-info h2 {
+            color: #667eea;
+            font-size: 1.5em;
+            margin-bottom: 5px;
+        }
+        
+        .preview-products {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 20px;
+        }
+        
+        .preview-product {
+            border: 1px solid #e0e0e0;
+            border-radius: 8px;
+            padding: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .preview-product-img {
+            width: 100%;
+            height: 120px;
+            object-fit: contain;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .preview-product-name {
+            font-weight: 600;
+            color: #333;
+            font-size: 0.9em;
+        }
+        
+        .preview-product-code {
+            color: #666;
+            font-size: 0.8em;
+        }
+        
+        .preview-product-price {
+            color: #4caf50;
+            font-weight: bold;
+            font-size: 1.2em;
+        }
+        
+        /* Buscador */
+        .search-box {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .search-box input {
+            flex: 1;
+            padding: 12px 20px;
+            border: 2px solid #e0e0e0;
+            border-radius: 10px;
+            font-size: 1em;
+        }
+        
+        .search-box input:focus {
+            outline: none;
+            border-color: #667eea;
+        }
+        
+        /* Stats */
+        .stats {
+            display: flex;
+            gap: 20px;
+            margin-bottom: 20px;
+            flex-wrap: wrap;
+        }
+        
+        .stat-card {
+            flex: 1;
+            min-width: 200px;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 15px rgba(102, 126, 234, 0.3);
+        }
+        
+        .stat-number {
+            font-size: 2em;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+        
+        .stat-label {
+            opacity: 0.9;
+            font-size: 0.9em;
+        }
+        
+        /* Loading */
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Toast notifications */
+        .toast {
+            position: fixed;
+            bottom: 100px;
+            right: 20px;
+            background: #333;
+            color: white;
+            padding: 15px 25px;
+            border-radius: 10px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.3);
+            z-index: 10000;
+            display: none;
+            animation: slideIn 0.3s;
+        }
+        
+        .toast.show {
+            display: block;
+        }
+        
+        .toast.success {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        }
+        
+        .toast.error {
+            background: linear-gradient(135deg, #f44336 0%, #d32f2f 100%);
+        }
+        
+        @keyframes slideIn {
+            from {
+                transform: translateX(400px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(0);
+                opacity: 1;
+            }
+        }
+        
+        /* Navegación inferior móvil */
+        .mobile-bottom-nav {
+            display: none;
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: linear-gradient(135deg, #1a1a2e 0%, #16213e 100%);
+            padding: 8px 0;
+            padding-bottom: calc(8px + env(safe-area-inset-bottom));
+            z-index: 9999;
+            box-shadow: 0 -4px 20px rgba(0,0,0,0.3);
+            border-top: 2px solid #667eea;
+        }
+        
+        .mobile-nav-inner {
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        
+        .mobile-nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 8px 10px;
+            color: rgba(255,255,255,0.6);
+            text-decoration: none;
+            font-size: 0.65em;
+            font-weight: 600;
+            transition: all 0.2s;
+            border-radius: 12px;
+            min-width: 55px;
+            cursor: pointer;
+        }
+        
+        .mobile-nav-item.active {
+            color: #667eea;
+            background: rgba(102, 126, 234, 0.15);
+        }
+        
+        .mobile-nav-item:active {
+            transform: scale(0.95);
+        }
+        
+        .mobile-nav-icon {
+            font-size: 1.8em;
+            margin-bottom: 3px;
+        }
+        
+        /* FAB WhatsApp */
+        .whatsapp-fab {
+            display: none;
+            position: fixed;
+            bottom: 90px;
+            right: 20px;
+            width: 60px;
+            height: 60px;
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 2em;
+            cursor: pointer;
+            box-shadow: 0 4px 20px rgba(37, 211, 102, 0.5);
+            z-index: 9998;
+            transition: all 0.3s;
+        }
+        
+        .whatsapp-fab:active {
+            transform: scale(0.95);
+        }
+        
+        .whatsapp-fab.pulse {
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { transform: scale(1); }
+            50% { transform: scale(1.1); }
+        }
+        
+        /* Menu de acciones móvil */
+        .mobile-actions {
+            position: fixed;
+            bottom: 85px;
+            right: 20px;
+            display: none;
+            flex-direction: column;
+            gap: 15px;
+            z-index: 9997;
+        }
+        
+        .mobile-actions.show {
+            display: flex;
+            animation: slideUp 0.3s;
+        }
+        
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+        
+        .mobile-action-btn {
+            width: 50px;
+            height: 50px;
+            border-radius: 50%;
+            border: none;
+            color: white;
+            font-size: 1.5em;
+            cursor: pointer;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .mobile-action-btn:active {
+            transform: scale(0.95);
+        }
+        
+        .mobile-action-btn.whatsapp {
+            background: linear-gradient(135deg, #25D366 0%, #128C7E 100%);
+        }
+        
+        .mobile-action-btn.share {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        }
+        
+        .mobile-action-btn.download {
+            background: linear-gradient(135deg, #4caf50 0%, #45a049 100%);
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+                padding-bottom: 90px;
+            }
+            
+            .mobile-bottom-nav {
+                display: block;
+            }
+            
+            .whatsapp-fab {
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            
+            .header {
+                flex-direction: column;
+                text-align: center;
+                padding: 20px 15px;
+            }
+            
+            .header h1 {
+                font-size: 1.4em;
+            }
+            
+            .header-right {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .header-right .btn {
+                width: 100%;
+            }
+            
+            .tabs {
+                display: none !important;
+            }
+            
+            .form-grid {
+                grid-template-columns: 1fr;
+            }
+            
+            .products-grid {
+                grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
+                gap: 15px;
+            }
+            
+            .product-card {
+                padding: 12px;
+            }
+            
+            .preview-products {
+                grid-template-columns: 1fr;
+            }
+            
+            .catalog-preview {
+                padding: 15px;
+            }
+            
+            .stats {
+                flex-direction: column;
+            }
+            
+            .form-section {
+                padding: 20px 15px;
+            }
+            
+            .form-section h3 {
+                font-size: 1.1em;
+            }
+            
+            .upload-area {
+                padding: 30px 15px;
+            }
+            
+            .upload-icon {
+                font-size: 3em;
+            }
+            
+            .btn {
+                width: 100%;
+                justify-content: center;
+            }
+            
+            .upload-options {
+                flex-direction: column;
+            }
+            
+            .search-box {
+                flex-direction: column;
+            }
+            
+            .search-box input {
+                width: 100%;
+            }
+            
+            .modal-content {
+                margin: 20px;
+            }
+        }
+        
+        /* Mejoras táctiles */
+        @media (max-width: 768px) {
+            .product-card {
+                touch-action: manipulation;
+            }
+            
+            .btn, .tab-btn, .mobile-nav-item {
+                -webkit-tap-highlight-color: transparent;
+            }
+            
+            input, select, textarea {
+                font-size: 16px; /* Evita zoom en iOS */
+            }
+        }
+        
+        /* Image upload button styles */
+        .image-upload-options {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            flex-wrap: wrap;
+        }
+        
+        .btn-sm {
+            padding: 8px 15px;
+            font-size: 0.9em;
+        }
+        
+        /* Modal para agregar URL */
+        .modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0,0,0,0.5);
+            z-index: 10000;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .modal.show {
+            display: flex;
+        }
+        
+        .modal-content {
+            background: white;
+            padding: 30px;
+            border-radius: 15px;
+            max-width: 500px;
+            width: 90%;
+            box-shadow: 0 8px 32px rgba(0,0,0,0.2);
+        }
+        
+        .modal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .modal-header h3 {
+            color: #1a1a2e;
+            font-size: 1.3em;
+        }
+        
+        .modal-close {
+            background: none;
+            border: none;
+            font-size: 1.5em;
+            cursor: pointer;
+            color: #999;
+        }
+        
+        .modal-close:hover {
+            color: #333;
+        }
+        
+        /* Estilos adicionales para modal WhatsApp */
+        #whatsappModal .btn-success {
+            margin-top: 10px;
+        }
+        
+        #whatsappModal input[type="tel"] {
+            font-size: 1.1em;
+            font-weight: 500;
+        }
+        
+        /* Cerrar acciones móviles al hacer scroll */
+        .mobile-actions.hide {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-left">
+                <div class="header-logo">📚</div>
+                <div>
+                    <h1>Gestor de Catálogos</h1>
+                    <p>Bruzzone Distribuidora</p>
+                </div>
+            </div>
+            <div class="header-right">
+                <button class="btn btn-success" onclick="generatePDF()">
+                    📄 Generar PDF
+                </button>
+            </div>
+        </div>
+        
+        <!-- Tabs -->
+        <div class="tabs">
+            <button class="tab-btn active" onclick="switchTab('config')">⚙️ Configuración</button>
+            <button class="tab-btn" onclick="switchTab('products')">🏷️ Productos</button>
+            <button class="tab-btn" onclick="switchTab('images')">🖼️ Imágenes</button>
+            <button class="tab-btn" onclick="switchTab('catalog')">📋 Armar Catálogo</button>
+            <button class="tab-btn" onclick="switchTab('preview')">👁️ Vista Previa</button>
+        </div>
+        
+        <!-- Contenido: Configuración -->
+        <div id="config" class="content active">
+            <div class="form-section">
+                <h3>🏢 Datos de la Empresa</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nombre de la Distribuidora</label>
+                        <input type="text" id="companyName" value="Bruzzone Distribuidora" placeholder="Nombre de la empresa">
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <input type="text" id="companyPhone" placeholder="Ej: +54 9 123456789">
+                    </div>
+                    <div class="form-group">
+                        <label>Email</label>
+                        <input type="email" id="companyEmail" placeholder="contacto@ejemplo.com">
+                    </div>
+                    <div class="form-group">
+                        <label>Dirección</label>
+                        <input type="text" id="companyAddress" value="Dr. Carlos Rocha 128, Alejandro Roca, Córdoba" placeholder="Dirección completa">
+                    </div>
+                    <div class="form-group">
+                        <label>Sitio Web</label>
+                        <input type="text" id="companyWebsite" placeholder="www.ejemplo.com">
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>🎨 Personalización del Catálogo</h3>
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Título del Catálogo</label>
+                        <input type="text" id="catalogTitle" value="Catálogo de Productos" placeholder="Título principal">
+                    </div>
+                    <div class="form-group">
+                        <label>Subtítulo</label>
+                        <input type="text" id="catalogSubtitle" placeholder="Período, temporada, etc.">
+                    </div>
+                    <div class="form-group">
+                        <label>Color Principal</label>
+                        <input type="color" id="primaryColor" value="#667eea">
+                    </div>
+                    <div class="form-group">
+                        <label>Mostrar Precios</label>
+                        <select id="showPrices">
+                            <option value="yes">Sí</option>
+                            <option value="no">No</option>
+                        </select>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="form-section">
+                <h3>🖼️ Logo de la Empresa</h3>
+                <div class="upload-area" onclick="document.getElementById('logoUpload').click()">
+                    <div class="upload-icon">📷</div>
+                    <p><strong>Haz clic para subir el logo</strong></p>
+                    <p style="color: #666; font-size: 0.9em; margin-top: 10px;">
+                        Formatos: JPG, PNG, GIF (máx. 5MB)
+                    </p>
+                </div>
+                <input type="file" id="logoUpload" accept="image/*" style="display: none;" onchange="handleLogoUpload(event)">
+                
+                <div class="upload-options">
+                    <button class="btn btn-secondary btn-sm" onclick="document.getElementById('logoUpload').click()">
+                        📁 Desde PC
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="captureLogoPhoto()">
+                        📸 Tomar Foto
+                    </button>
+                    <button class="btn btn-secondary btn-sm" onclick="showUrlModal('logo')">
+                        🔗 Desde URL
+                    </button>
+                </div>
+                
+                <div id="logoPreviewContainer" style="display: none; margin-top: 20px;">
+                    <p style="font-weight: 600; margin-bottom: 10px;">Vista previa:</p>
+                    <img id="logoPreview" class="logo-preview" alt="Logo preview">
+                </div>
+            </div>
+            
+            <button class="btn btn-primary" onclick="saveConfiguration()">
+                💾 Guardar Configuración
+            </button>
+        </div>
+        
+        <!-- Contenido: Productos -->
+        <div id="products" class="content">
+            <div class="search-box">
+                <input type="text" id="productSearch" placeholder="🔍 Buscar productos por código, nombre o descripción..." onkeyup="filterProducts()">
+                <button class="btn btn-primary" onclick="loadProductsFromFirebase()">🔄 Cargar desde Firebase</button>
+            </div>
+            
+            <div class="stats">
+                <div class="stat-card">
+                    <div class="stat-number" id="totalProducts">0</div>
+                    <div class="stat-label">Productos Totales</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="productsWithImages">0</div>
+                    <div class="stat-label">Con Imágenes</div>
+                </div>
+                <div class="stat-card">
+                    <div class="stat-number" id="selectedProducts">0</div>
+                    <div class="stat-label">Seleccionados</div>
+                </div>
+            </div>
+            
+            <div id="productsGrid" class="products-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando productos...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenido: Imágenes -->
+        <div id="images" class="content">
+            <div class="form-section">
+                <h3>📸 Cargar Imágenes de Productos</h3>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Selecciona un producto del catálogo y súbele imágenes desde tu PC, cámara o URL
+                </p>
+                
+                <div class="form-group" style="margin-bottom: 20px;">
+                    <label>Selecciona un producto:</label>
+                    <select id="productSelect" style="padding: 12px; border-radius: 8px; border: 2px solid #e0e0e0; font-size: 1em;">
+                        <option value="">-- Selecciona un producto --</option>
+                    </select>
+                </div>
+                
+                <div id="imageUploadSection" style="display: none;">
+                    <div class="upload-area" onclick="document.getElementById('productImageUpload').click()">
+                        <div class="upload-icon">🖼️</div>
+                        <p><strong>Haz clic para subir imagen del producto</strong></p>
+                        <p style="color: #666; font-size: 0.9em; margin-top: 10px;">
+                            Formatos: JPG, PNG, WEBP (máx. 10MB)
+                        </p>
+                    </div>
+                    <input type="file" id="productImageUpload" accept="image/*" style="display: none;" onchange="handleProductImageUpload(event)">
+                    
+                    <div class="upload-options">
+                        <button class="btn btn-secondary btn-sm" onclick="document.getElementById('productImageUpload').click()">
+                            📁 Desde PC
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="captureProductPhoto()">
+                            📸 Tomar Foto
+                        </button>
+                        <button class="btn btn-secondary btn-sm" onclick="showUrlModal('product')">
+                            🔗 Desde URL
+                        </button>
+                    </div>
+                    
+                    <div id="productImagePreviewContainer" style="display: none; margin-top: 20px;">
+                        <p style="font-weight: 600; margin-bottom: 10px;">Vista previa:</p>
+                        <img id="productImagePreview" class="logo-preview" alt="Product preview">
+                        <button class="btn btn-success" style="margin-top: 15px;" onclick="saveProductImage()">
+                            ✅ Guardar Imagen
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="currentProductImages" class="form-section" style="display: none;">
+                <h3>🖼️ Imágenes del Producto Actual</h3>
+                <div id="currentImagesGrid" class="products-grid"></div>
+            </div>
+        </div>
+        
+        <!-- Contenido: Armar Catálogo -->
+        <div id="catalog" class="content">
+            <div class="form-section">
+                <h3>📋 Seleccionar Productos para el Catálogo</h3>
+                <p style="color: #666; margin-bottom: 20px;">
+                    Haz clic en los productos que quieras incluir en el catálogo. Se mostrarán 8 productos por página (2 columnas × 4 filas).
+                </p>
+                
+                <div class="search-box">
+                    <input type="text" id="catalogProductSearch" placeholder="🔍 Buscar productos..." onkeyup="filterCatalogProducts()">
+                    <button class="btn btn-secondary" onclick="clearCatalogSelection()">🗑️ Limpiar Selección</button>
+                    <button class="btn btn-primary" onclick="switchTab('preview')">👁️ Ver Vista Previa</button>
+                </div>
+                
+                <div class="stats">
+                    <div class="stat-card">
+                        <div class="stat-number" id="catalogSelectedCount">0</div>
+                        <div class="stat-label">Productos Seleccionados</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-number" id="catalogPagesCount">0</div>
+                        <div class="stat-label">Páginas Estimadas</div>
+                    </div>
+                </div>
+            </div>
+            
+            <div id="catalogProductsGrid" class="products-grid">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Cargando productos...</p>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Contenido: Vista Previa -->
+        <div id="preview" class="content">
+            <div style="text-align: center; margin-bottom: 30px;">
+                <h2 style="color: #1a1a2e; margin-bottom: 10px;">Vista Previa del Catálogo</h2>
+                <p style="color: #666;">Así se verá tu catálogo al generar el PDF</p>
+                <button class="btn btn-success" onclick="generatePDF()" style="margin-top: 15px;">
+                    📄 Generar PDF Final
+                </button>
+            </div>
+            
+            <div id="previewContainer" class="catalog-preview">
+                <div class="loading">
+                    <div class="spinner"></div>
+                    <p>Generando vista previa...</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Navegación Inferior Móvil -->
+    <div class="mobile-bottom-nav">
+        <div class="mobile-nav-inner">
+            <div class="mobile-nav-item active" onclick="switchTabMobile('config')" data-tab="config">
+                <div class="mobile-nav-icon">⚙️</div>
+                <div>Config</div>
+            </div>
+            <div class="mobile-nav-item" onclick="switchTabMobile('products')" data-tab="products">
+                <div class="mobile-nav-icon">🏷️</div>
+                <div>Productos</div>
+            </div>
+            <div class="mobile-nav-item" onclick="switchTabMobile('images')" data-tab="images">
+                <div class="mobile-nav-icon">🖼️</div>
+                <div>Imágenes</div>
+            </div>
+            <div class="mobile-nav-item" onclick="switchTabMobile('catalog')" data-tab="catalog">
+                <div class="mobile-nav-icon">📋</div>
+                <div>Catálogo</div>
+            </div>
+            <div class="mobile-nav-item" onclick="switchTabMobile('preview')" data-tab="preview">
+                <div class="mobile-nav-icon">👁️</div>
+                <div>Preview</div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Botón WhatsApp Flotante -->
+    <button class="whatsapp-fab pulse" onclick="toggleMobileActions()" id="whatsappFab">
+        💬
+    </button>
+    
+    <!-- Menú de acciones móvil -->
+    <div class="mobile-actions" id="mobileActions">
+        <button class="mobile-action-btn whatsapp" onclick="shareViaWhatsApp()" title="Enviar por WhatsApp">
+            💬
+        </button>
+        <button class="mobile-action-btn share" onclick="shareViaSystem()" title="Compartir">
+            📤
+        </button>
+        <button class="mobile-action-btn download" onclick="generatePDF()" title="Descargar PDF">
+            📄
+        </button>
+    </div>
+    
+    <!-- Modal para URL -->
+    <div id="urlModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>🔗 Cargar imagen desde URL</h3>
+                <button class="modal-close" onclick="closeUrlModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>URL de la imagen:</label>
+                <input type="text" id="imageUrl" placeholder="https://ejemplo.com/imagen.jpg">
+            </div>
+            <button class="btn btn-primary" onclick="loadImageFromUrl()">Cargar Imagen</button>
+        </div>
+    </div>
+    
+    <!-- Modal para envío WhatsApp -->
+    <div id="whatsappModal" class="modal">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>💬 Enviar Catálogo por WhatsApp</h3>
+                <button class="modal-close" onclick="closeWhatsAppModal()">×</button>
+            </div>
+            <div class="form-group">
+                <label>Número de teléfono (con código de país):</label>
+                <input type="tel" id="whatsappNumber" placeholder="+54 9 3584 123456">
+                <p style="font-size: 0.85em; color: #666; margin-top: 5px;">
+                    Formato: +54 9 [área] [número] (sin espacios ni guiones al enviar)
+                </p>
+            </div>
+            <div class="form-group">
+                <label>Mensaje (opcional):</label>
+                <textarea id="whatsappMessage" rows="3" placeholder="Hola, te envío el catálogo de productos...">Hola! Te comparto nuestro catálogo actualizado de productos de Bruzzone Distribuidora 📚</textarea>
+            </div>
+            <button class="btn btn-success" onclick="sendWhatsAppMessage()">
+                📱 Abrir WhatsApp
+            </button>
+            <p style="font-size: 0.85em; color: #666; margin-top: 15px; text-align: center;">
+                Se abrirá WhatsApp con el mensaje. Luego adjunta manualmente el PDF descargado.
+            </p>
+        </div>
+    </div>
+    
+    <!-- Toast -->
+    <div id="toast" class="toast"></div>
+    
+    <script>
+        // ========================================
+        // VARIABLES GLOBALES
+        // ========================================
+        
+        let products = [];
+        let selectedProducts = [];
+        let configuration = {
+            companyName: 'Bruzzone Distribuidora',
+            companyPhone: '',
+            companyEmail: '',
+            companyAddress: 'Dr. Carlos Rocha 128, Alejandro Roca, Córdoba',
+            companyWebsite: '',
+            catalogTitle: 'Catálogo de Productos',
+            catalogSubtitle: '',
+            primaryColor: '#667eea',
+            showPrices: 'yes',
+            logo: null
+        };
+        let currentImageType = 'logo'; // 'logo' o 'product'
+        let currentSelectedProduct = null;
+        
+        // Configuración Firebase (Bruzzone Distribuidora)
+        const firebaseConfig = {
+            apiKey: "AIzaSyAOW6EDEw5RsnypWryhr3qFg9cWjQkottA",
+            authDomain: "bruzzone-distribuidora-42a19.firebaseapp.com",
+            projectId: "bruzzone-distribuidora-42a19",
+            storageBucket: "bruzzone-distribuidora-42a19.firebasestorage.app",
+            messagingSenderId: "842215586842",
+            appId: "1:842215586842:web:d9513c0d156b826de1e5a3"
+        };
+        
+        // Inicializar Firebase solo si no está inicializado
+        if (!firebase.apps.length) {
+            firebase.initializeApp(firebaseConfig);
+        }
+        
+        const db = firebase.firestore();
+        const storage = firebase.storage();
+        
+        // ========================================
+        // FUNCIONES DE NAVEGACIÓN
+        // ========================================
+        
+        function switchTab(tabId) {
+            // Ocultar todos los contenidos
+            document.querySelectorAll('.content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Desactivar todos los botones de tabs
+            document.querySelectorAll('.tab-btn').forEach(btn => {
+                btn.classList.remove('active');
+            });
+            
+            // Desactivar todos los items de navegación móvil
+            document.querySelectorAll('.mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Activar el contenido seleccionado
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activar el botón correspondiente (desktop)
+            if (event && event.target) {
+                event.target.classList.add('active');
+            }
+            
+            // Activar item móvil
+            const activeItem = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+            
+            // Acciones específicas por tab
+            if (tabId === 'products' || tabId === 'catalog') {
+                if (products.length === 0) {
+                    loadProductsFromFirebase();
+                }
+            }
+            
+            if (tabId === 'preview') {
+                generatePreview();
+            }
+            
+            if (tabId === 'images') {
+                populateProductSelect();
+            }
+        }
+        
+        // ========================================
+        // CONFIGURACIÓN
+        // ========================================
+        
+        function saveConfiguration() {
+            configuration.companyName = document.getElementById('companyName').value;
+            configuration.companyPhone = document.getElementById('companyPhone').value;
+            configuration.companyEmail = document.getElementById('companyEmail').value;
+            configuration.companyAddress = document.getElementById('companyAddress').value;
+            configuration.companyWebsite = document.getElementById('companyWebsite').value;
+            configuration.catalogTitle = document.getElementById('catalogTitle').value;
+            configuration.catalogSubtitle = document.getElementById('catalogSubtitle').value;
+            configuration.primaryColor = document.getElementById('primaryColor').value;
+            configuration.showPrices = document.getElementById('showPrices').value;
+            
+            // Guardar en localStorage
+            localStorage.setItem('catalogConfig', JSON.stringify(configuration));
+            
+            showToast('✅ Configuración guardada correctamente', 'success');
+        }
+        
+        function loadConfiguration() {
+            const saved = localStorage.getItem('catalogConfig');
+            if (saved) {
+                configuration = JSON.parse(saved);
+                
+                document.getElementById('companyName').value = configuration.companyName || '';
+                document.getElementById('companyPhone').value = configuration.companyPhone || '';
+                document.getElementById('companyEmail').value = configuration.companyEmail || '';
+                document.getElementById('companyAddress').value = configuration.companyAddress || '';
+                document.getElementById('companyWebsite').value = configuration.companyWebsite || '';
+                document.getElementById('catalogTitle').value = configuration.catalogTitle || '';
+                document.getElementById('catalogSubtitle').value = configuration.catalogSubtitle || '';
+                document.getElementById('primaryColor').value = configuration.primaryColor || '#667eea';
+                document.getElementById('showPrices').value = configuration.showPrices || 'yes';
+                
+                if (configuration.logo) {
+                    document.getElementById('logoPreview').src = configuration.logo;
+                    document.getElementById('logoPreviewContainer').style.display = 'block';
+                }
+            }
+        }
+        
+        // ========================================
+        // MANEJO DE IMÁGENES
+        // ========================================
+        
+        function handleLogoUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    configuration.logo = e.target.result;
+                    document.getElementById('logoPreview').src = e.target.result;
+                    document.getElementById('logoPreviewContainer').style.display = 'block';
+                    showToast('✅ Logo cargado correctamente', 'success');
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function captureLogoPhoto() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = handleLogoUpload;
+            input.click();
+        }
+        
+        function showUrlModal(type) {
+            currentImageType = type;
+            document.getElementById('urlModal').classList.add('show');
+            document.getElementById('imageUrl').value = '';
+        }
+        
+        function closeUrlModal() {
+            document.getElementById('urlModal').classList.remove('show');
+        }
+        
+        function loadImageFromUrl() {
+            const url = document.getElementById('imageUrl').value.trim();
+            
+            if (!url) {
+                showToast('⚠️ Por favor ingresa una URL', 'error');
+                return;
+            }
+            
+            // Validar que sea una URL de imagen
+            if (!url.match(/\.(jpeg|jpg|gif|png|webp)$/i)) {
+                showToast('⚠️ La URL debe apuntar a una imagen (jpg, png, gif, webp)', 'error');
+                return;
+            }
+            
+            if (currentImageType === 'logo') {
+                configuration.logo = url;
+                document.getElementById('logoPreview').src = url;
+                document.getElementById('logoPreviewContainer').style.display = 'block';
+                showToast('✅ Logo cargado desde URL', 'success');
+            } else {
+                document.getElementById('productImagePreview').src = url;
+                document.getElementById('productImagePreviewContainer').style.display = 'block';
+                showToast('✅ Imagen cargada desde URL', 'success');
+            }
+            
+            closeUrlModal();
+        }
+        
+        function handleProductImageUpload(event) {
+            const file = event.target.files[0];
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('productImagePreview').src = e.target.result;
+                    document.getElementById('productImagePreviewContainer').style.display = 'block';
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+        
+        function captureProductPhoto() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = 'image/*';
+            input.capture = 'environment';
+            input.onchange = handleProductImageUpload;
+            input.click();
+        }
+        
+        function saveProductImage() {
+            const productId = document.getElementById('productSelect').value;
+            if (!productId) {
+                showToast('⚠️ Selecciona un producto primero', 'error');
+                return;
+            }
+            
+            const imageUrl = document.getElementById('productImagePreview').src;
+            if (!imageUrl) {
+                showToast('⚠️ Carga una imagen primero', 'error');
+                return;
+            }
+            
+            // Buscar el producto y actualizar su imagen
+            const product = products.find(p => p.id === productId);
+            if (product) {
+                product.image = imageUrl;
+                
+                // Guardar en localStorage
+                localStorage.setItem('productImages', JSON.stringify(products));
+                
+                showToast('✅ Imagen guardada correctamente', 'success');
+                
+                // Actualizar stats
+                updateProductStats();
+                
+                // Limpiar preview
+                document.getElementById('productImagePreview').src = '';
+                document.getElementById('productImagePreviewContainer').style.display = 'none';
+                
+                // Mostrar las imágenes actuales del producto
+                showCurrentProductImages(productId);
+            }
+        }
+        
+        function populateProductSelect() {
+            const select = document.getElementById('productSelect');
+            select.innerHTML = '<option value="">-- Selecciona un producto --</option>';
+            
+            products.forEach(product => {
+                const option = document.createElement('option');
+                option.value = product.id;
+                option.textContent = `${product.codigo || ''} - ${product.descripcion || product.name || 'Sin nombre'}`;
+                select.appendChild(option);
+            });
+            
+            select.onchange = function() {
+                const productId = this.value;
+                if (productId) {
+                    document.getElementById('imageUploadSection').style.display = 'block';
+                    currentSelectedProduct = productId;
+                    showCurrentProductImages(productId);
+                } else {
+                    document.getElementById('imageUploadSection').style.display = 'none';
+                    document.getElementById('currentProductImages').style.display = 'none';
+                }
+            };
+        }
+        
+        function showCurrentProductImages(productId) {
+            const product = products.find(p => p.id === productId);
+            if (product && product.image) {
+                document.getElementById('currentProductImages').style.display = 'block';
+                document.getElementById('currentImagesGrid').innerHTML = `
+                    <div class="product-card">
+                        <img src="${product.image}" class="product-image" alt="${product.descripcion}">
+                        <div class="product-name">${product.descripcion || product.name || 'Sin nombre'}</div>
+                        <button class="btn btn-danger btn-sm" onclick="removeProductImage('${productId}')">
+                            🗑️ Eliminar
+                        </button>
+                    </div>
+                `;
+            } else {
+                document.getElementById('currentProductImages').style.display = 'none';
+            }
+        }
+        
+        function removeProductImage(productId) {
+            const product = products.find(p => p.id === productId);
+            if (product) {
+                product.image = null;
+                localStorage.setItem('productImages', JSON.stringify(products));
+                showToast('✅ Imagen eliminada', 'success');
+                updateProductStats();
+                document.getElementById('currentProductImages').style.display = 'none';
+            }
+        }
+        
+        // ========================================
+        // PRODUCTOS DESDE FIREBASE
+        // ========================================
+        
+        async function loadProductsFromFirebase() {
+            showToast('🔄 Cargando productos desde Firebase...', 'success');
+            
+            try {
+                console.log('📡 Intentando conectar a Firebase...');
+                console.log('🔗 Proyecto:', firebaseConfig.projectId);
+                
+                const snapshot = await db.collection('productos').get();
+                
+                console.log('✅ Conexión exitosa. Documentos encontrados:', snapshot.size);
+                
+                products = [];
+                
+                if (snapshot.empty) {
+                    console.warn('⚠️ No hay productos en Firebase');
+                    showToast('⚠️ No hay productos en la base de datos', 'error');
+                    loadSampleProducts();
+                    return;
+                }
+                
+                snapshot.forEach(doc => {
+                    const data = doc.data();
+                    console.log('📦 Producto cargado:', doc.id, data);
+                    products.push({
+                        id: doc.id,
+                        codigo: data.codigo || data.codigoProducto || '',
+                        descripcion: data.descripcion || data.nombre || data.name || '',
+                        precio: data.precioFinal || data.precio || 0,
+                        proveedor: data.proveedor || '',
+                        image: data.image || null
+                    });
+                });
+                
+                // Cargar imágenes guardadas localmente
+                const savedImages = localStorage.getItem('productImages');
+                if (savedImages) {
+                    const imagesData = JSON.parse(savedImages);
+                    products.forEach(product => {
+                        const saved = imagesData.find(p => p.id === product.id);
+                        if (saved && saved.image) {
+                            product.image = saved.image;
+                        }
+                    });
+                }
+                
+                displayProducts();
+                displayCatalogProducts();
+                updateProductStats();
+                
+                showToast(`✅ ${products.length} productos cargados`, 'success');
+                
+            } catch (error) {
+                console.error('❌ Error al cargar productos:', error);
+                console.error('Código de error:', error.code);
+                console.error('Mensaje:', error.message);
+                
+                if (error.code === 'permission-denied') {
+                    showToast('❌ Error de permisos en Firebase. Verifica las reglas de Firestore.', 'error');
+                    
+                    // Mostrar instrucciones
+                    alert(`⚠️ ERROR DE PERMISOS EN FIRESTORE
+
+Tu configuración de Firebase está correcta, pero necesitás configurar las reglas de seguridad.
+
+SOLUCIÓN:
+
+1. Andá a: https://console.firebase.google.com
+2. Seleccioná tu proyecto: bruzzone-distribuidora-42a19
+3. Clic en "Firestore Database" en el menú izquierdo
+4. Clic en la pestaña "Reglas"
+5. Reemplazá las reglas con:
+
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /productos/{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+    match /{document=**} {
+      allow read: if true;
+      allow write: if true;
+    }
+  }
+}
+
+6. Clic en "Publicar"
+7. Refrescá esta página
+
+Mientras tanto, usaré productos de ejemplo para que pruebes el sistema.`);
+                    
+                } else if (error.code === 'unavailable') {
+                    showToast('❌ Sin conexión a internet. Verifica tu conexión.', 'error');
+                } else {
+                    showToast(`❌ Error al cargar: ${error.message}`, 'error');
+                }
+                
+                // Cargar productos de ejemplo
+                console.log('📝 Cargando productos de ejemplo...');
+                loadSampleProducts();
+            }
+        }
+        
+        function loadSampleProducts() {
+            products = [
+                {
+                    id: 'sample-1',
+                    codigo: 'PROD-001',
+                    descripcion: 'Martillo Carpintero 500g',
+                    precio: 5500,
+                    proveedor: 'Proveedor A',
+                    image: null
+                },
+                {
+                    id: 'sample-2',
+                    codigo: 'PROD-002',
+                    descripcion: 'Destornillador Phillips #2',
+                    precio: 2800,
+                    proveedor: 'Proveedor B',
+                    image: null
+                },
+                {
+                    id: 'sample-3',
+                    codigo: 'PROD-003',
+                    descripcion: 'Llave Inglesa 12 pulgadas',
+                    precio: 8900,
+                    proveedor: 'Proveedor A',
+                    image: null
+                },
+                {
+                    id: 'sample-4',
+                    codigo: 'PROD-004',
+                    descripcion: 'Alicate Universal 8"',
+                    precio: 6200,
+                    proveedor: 'Proveedor C',
+                    image: null
+                },
+                {
+                    id: 'sample-5',
+                    codigo: 'PROD-005',
+                    descripcion: 'Sierra Manual 24"',
+                    precio: 4500,
+                    proveedor: 'Proveedor A',
+                    image: null
+                },
+                {
+                    id: 'sample-6',
+                    codigo: 'PROD-006',
+                    descripcion: 'Cinta Métrica 5m',
+                    precio: 3200,
+                    proveedor: 'Proveedor B',
+                    image: null
+                },
+                {
+                    id: 'sample-7',
+                    codigo: 'PROD-007',
+                    descripcion: 'Nivel de Burbuja 60cm',
+                    precio: 7800,
+                    proveedor: 'Proveedor C',
+                    image: null
+                },
+                {
+                    id: 'sample-8',
+                    codigo: 'PROD-008',
+                    descripcion: 'Taladro Eléctrico 600W',
+                    precio: 25000,
+                    proveedor: 'Proveedor A',
+                    image: null
+                },
+                {
+                    id: 'sample-9',
+                    codigo: 'PROD-009',
+                    descripcion: 'Lijadora Orbital 250W',
+                    precio: 18500,
+                    proveedor: 'Proveedor B',
+                    image: null
+                },
+                {
+                    id: 'sample-10',
+                    codigo: 'PROD-010',
+                    descripcion: 'Escalera Aluminio 6 escalones',
+                    precio: 32000,
+                    proveedor: 'Proveedor C',
+                    image: null
+                }
+            ];
+            
+            displayProducts();
+            displayCatalogProducts();
+            updateProductStats();
+            
+            showToast(`📝 ${products.length} productos de ejemplo cargados`, 'success');
+            console.log('✅ Productos de ejemplo listos');
+        }
+        
+        function displayProducts() {
+            const grid = document.getElementById('productsGrid');
+            
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="loading"><p>No hay productos. Haz clic en "Cargar desde Firebase" para importarlos.</p></div>';
+                return;
+            }
+            
+            grid.innerHTML = products.map(product => `
+                <div class="product-card">
+                    ${product.image ? 
+                        `<img src="${product.image}" class="product-image" alt="${product.descripcion}">` :
+                        `<div class="product-image no-image">📦</div>`
+                    }
+                    <div class="product-name">${product.descripcion}</div>
+                    <div class="product-code">${product.codigo}</div>
+                    <div class="product-price">$${product.precio.toLocaleString('es-AR')}</div>
+                </div>
+            `).join('');
+        }
+        
+        function displayCatalogProducts() {
+            const grid = document.getElementById('catalogProductsGrid');
+            
+            if (products.length === 0) {
+                grid.innerHTML = '<div class="loading"><p>No hay productos disponibles.</p></div>';
+                return;
+            }
+            
+            grid.innerHTML = products.map(product => `
+                <div class="product-card ${selectedProducts.includes(product.id) ? 'selected' : ''}" 
+                     onclick="toggleProductSelection('${product.id}')">
+                    ${product.image ? 
+                        `<img src="${product.image}" class="product-image" alt="${product.descripcion}">` :
+                        `<div class="product-image no-image">📦</div>`
+                    }
+                    <div class="product-name">${product.descripcion}</div>
+                    <div class="product-code">${product.codigo}</div>
+                    <div class="product-price">$${product.precio.toLocaleString('es-AR')}</div>
+                </div>
+            `).join('');
+            
+            updateCatalogStats();
+        }
+        
+        function toggleProductSelection(productId) {
+            const index = selectedProducts.indexOf(productId);
+            if (index > -1) {
+                selectedProducts.splice(index, 1);
+            } else {
+                selectedProducts.push(productId);
+            }
+            
+            displayCatalogProducts();
+        }
+        
+        function clearCatalogSelection() {
+            selectedProducts = [];
+            displayCatalogProducts();
+        }
+        
+        function filterProducts() {
+            const search = document.getElementById('productSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('#productsGrid .product-card');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(search) ? 'block' : 'none';
+            });
+        }
+        
+        function filterCatalogProducts() {
+            const search = document.getElementById('catalogProductSearch').value.toLowerCase();
+            const cards = document.querySelectorAll('#catalogProductsGrid .product-card');
+            
+            cards.forEach(card => {
+                const text = card.textContent.toLowerCase();
+                card.style.display = text.includes(search) ? 'block' : 'none';
+            });
+        }
+        
+        function updateProductStats() {
+            const total = products.length;
+            const withImages = products.filter(p => p.image).length;
+            const selected = selectedProducts.length;
+            
+            document.getElementById('totalProducts').textContent = total;
+            document.getElementById('productsWithImages').textContent = withImages;
+            document.getElementById('selectedProducts').textContent = selected;
+        }
+        
+        function updateCatalogStats() {
+            const count = selectedProducts.length;
+            const pages = Math.ceil(count / 8); // 8 productos por página
+            
+            document.getElementById('catalogSelectedCount').textContent = count;
+            document.getElementById('catalogPagesCount').textContent = pages;
+        }
+        
+        // ========================================
+        // VISTA PREVIA
+        // ========================================
+        
+        function generatePreview() {
+            const container = document.getElementById('previewContainer');
+            
+            if (selectedProducts.length === 0) {
+                container.innerHTML = '<div class="loading"><p>No hay productos seleccionados para el catálogo.<br>Ve a "Armar Catálogo" para seleccionar productos.</p></div>';
+                return;
+            }
+            
+            const selectedProductsData = products.filter(p => selectedProducts.includes(p.id));
+            const pages = [];
+            
+            // Dividir en páginas de 8 productos
+            for (let i = 0; i < selectedProductsData.length; i += 8) {
+                pages.push(selectedProductsData.slice(i, i + 8));
+            }
+            
+            container.innerHTML = pages.map((pageProducts, pageIndex) => `
+                <div class="preview-page">
+                    <div class="preview-header">
+                        <div>
+                            ${configuration.logo ? 
+                                `<img src="${configuration.logo}" class="preview-logo" alt="Logo">` :
+                                '<div style="color: #667eea; font-size: 2em;">🏢</div>'
+                            }
+                        </div>
+                        <div class="preview-info">
+                            <h2>${configuration.catalogTitle}</h2>
+                            ${configuration.catalogSubtitle ? `<p>${configuration.catalogSubtitle}</p>` : ''}
+                            <p style="font-size: 0.9em; margin-top: 10px;">
+                                ${configuration.companyName}
+                            </p>
+                            ${configuration.companyPhone ? `<p style="font-size: 0.85em;">📞 ${configuration.companyPhone}</p>` : ''}
+                        </div>
+                    </div>
+                    
+                    <div class="preview-products">
+                        ${pageProducts.map(product => `
+                            <div class="preview-product">
+                                ${product.image ? 
+                                    `<img src="${product.image}" class="preview-product-img" alt="${product.descripcion}">` :
+                                    `<div class="preview-product-img" style="display: flex; align-items: center; justify-content: center; font-size: 3em; color: #ccc;">📦</div>`
+                                }
+                                <div class="preview-product-name">${product.descripcion}</div>
+                                <div class="preview-product-code">Cód: ${product.codigo}</div>
+                                ${configuration.showPrices === 'yes' ? 
+                                    `<div class="preview-product-price">$${product.precio.toLocaleString('es-AR')}</div>` : 
+                                    ''
+                                }
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div style="text-align: center; margin-top: 30px; padding-top: 20px; border-top: 2px solid #e0e0e0; color: #666; font-size: 0.85em;">
+                        ${configuration.companyAddress || ''} ${configuration.companyWebsite ? `• ${configuration.companyWebsite}` : ''} ${configuration.companyEmail ? `• ${configuration.companyEmail}` : ''}
+                        <br>
+                        Página ${pageIndex + 1} de ${pages.length}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // ========================================
+        // GENERAR PDF
+        // ========================================
+        
+        async function generatePDF() {
+            if (selectedProducts.length === 0) {
+                showToast('⚠️ Selecciona al menos un producto para el catálogo', 'error');
+                return;
+            }
+            
+            showToast('📄 Generando PDF...', 'success');
+            
+            const doc = await generatePDFForSharing();
+            
+            // Guardar PDF
+            const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            doc.save(fileName);
+            
+            showToast('✅ PDF generado correctamente', 'success');
+        }
+        
+        // ========================================
+        // UTILIDADES
+        // ========================================
+        
+        function showToast(message, type = '') {
+            const toast = document.getElementById('toast');
+            toast.textContent = message;
+            toast.className = 'toast show ' + type;
+            
+            setTimeout(() => {
+                toast.classList.remove('show');
+            }, 3000);
+        }
+        
+        // ========================================
+        // NAVEGACIÓN MÓVIL
+        // ========================================
+        
+        function switchTabMobile(tabId) {
+            // Ocultar todos los contenidos
+            document.querySelectorAll('.content').forEach(content => {
+                content.classList.remove('active');
+            });
+            
+            // Desactivar todos los items de navegación móvil
+            document.querySelectorAll('.mobile-nav-item').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Activar el contenido seleccionado
+            document.getElementById(tabId).classList.add('active');
+            
+            // Activar el item de navegación correspondiente
+            const activeItem = document.querySelector(`.mobile-nav-item[data-tab="${tabId}"]`);
+            if (activeItem) {
+                activeItem.classList.add('active');
+            }
+            
+            // Acciones específicas por tab
+            if (tabId === 'products' || tabId === 'catalog') {
+                if (products.length === 0) {
+                    loadProductsFromFirebase();
+                }
+            }
+            
+            if (tabId === 'preview') {
+                generatePreview();
+            }
+            
+            if (tabId === 'images') {
+                populateProductSelect();
+            }
+            
+            // Scroll al top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        // ========================================
+        // FUNCIONES WHATSAPP Y COMPARTIR
+        // ========================================
+        
+        let generatedPdfBlob = null;
+        
+        function toggleMobileActions() {
+            const actions = document.getElementById('mobileActions');
+            const fab = document.getElementById('whatsappFab');
+            
+            if (actions.classList.contains('show')) {
+                actions.classList.remove('show');
+                fab.textContent = '💬';
+                fab.classList.add('pulse');
+            } else {
+                actions.classList.add('show');
+                fab.textContent = '✕';
+                fab.classList.remove('pulse');
+            }
+        }
+        
+        function closeMobileActions() {
+            const actions = document.getElementById('mobileActions');
+            const fab = document.getElementById('whatsappFab');
+            actions.classList.remove('show');
+            fab.textContent = '💬';
+            fab.classList.add('pulse');
+        }
+        
+        async function shareViaWhatsApp() {
+            closeMobileActions();
+            
+            if (selectedProducts.length === 0) {
+                showToast('⚠️ Selecciona productos primero', 'error');
+                return;
+            }
+            
+            // Generar el PDF primero
+            await generatePDFForSharing();
+            
+            // Mostrar modal de WhatsApp
+            document.getElementById('whatsappModal').classList.add('show');
+        }
+        
+        function closeWhatsAppModal() {
+            document.getElementById('whatsappModal').classList.remove('show');
+        }
+        
+        function sendWhatsAppMessage() {
+            const number = document.getElementById('whatsappNumber').value.trim();
+            let message = document.getElementById('whatsappMessage').value.trim();
+            
+            if (!number) {
+                showToast('⚠️ Ingresa un número de teléfono', 'error');
+                return;
+            }
+            
+            // Limpiar el número (eliminar espacios, guiones, paréntesis)
+            const cleanNumber = number.replace(/[\s\-\(\)]/g, '');
+            
+            // Validar formato básico
+            if (!cleanNumber.startsWith('+') || cleanNumber.length < 10) {
+                showToast('⚠️ Formato de número incorrecto. Usa: +54 9 3584 123456', 'error');
+                return;
+            }
+            
+            // Agregar info del catálogo al mensaje
+            if (message) {
+                message += `\n\n📊 Catálogo: ${selectedProducts.length} productos`;
+            }
+            
+            // Construir URL de WhatsApp
+            const whatsappUrl = `https://wa.me/${cleanNumber}?text=${encodeURIComponent(message)}`;
+            
+            // Abrir WhatsApp
+            window.open(whatsappUrl, '_blank');
+            
+            closeWhatsAppModal();
+            showToast('✅ Abriendo WhatsApp... Adjunta el PDF descargado manualmente', 'success');
+            
+            // Si estamos en móvil, también descargar el PDF automáticamente
+            if (window.innerWidth <= 768) {
+                setTimeout(() => {
+                    downloadGeneratedPDF();
+                }, 1000);
+            }
+        }
+        
+        async function shareViaSystem() {
+            closeMobileActions();
+            
+            if (selectedProducts.length === 0) {
+                showToast('⚠️ Selecciona productos primero', 'error');
+                return;
+            }
+            
+            // Generar PDF
+            await generatePDFForSharing();
+            
+            // Verificar si el navegador soporta Web Share API
+            if (navigator.share && generatedPdfBlob) {
+                try {
+                    const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+                    const file = new File([generatedPdfBlob], fileName, { type: 'application/pdf' });
+                    
+                    await navigator.share({
+                        title: configuration.catalogTitle,
+                        text: `Catálogo de ${configuration.companyName} - ${selectedProducts.length} productos`,
+                        files: [file]
+                    });
+                    
+                    showToast('✅ Catálogo compartido correctamente', 'success');
+                } catch (error) {
+                    if (error.name !== 'AbortError') {
+                        console.error('Error al compartir:', error);
+                        showToast('❌ Error al compartir. Descargando PDF...', 'error');
+                        downloadGeneratedPDF();
+                    }
+                }
+            } else {
+                // Fallback: descargar el PDF
+                showToast('ℹ️ Tu navegador no soporta compartir archivos. Descargando PDF...', 'success');
+                downloadGeneratedPDF();
+            }
+        }
+        
+        async function generatePDFForSharing() {
+            showToast('📄 Generando catálogo...', 'success');
+            
+            const { jsPDF } = window.jspdf;
+            const doc = new jsPDF({
+                orientation: 'portrait',
+                unit: 'mm',
+                format: 'a4'
+            });
+            
+            const selectedProductsData = products.filter(p => selectedProducts.includes(p.id));
+            const pages = [];
+            
+            // Dividir en páginas de 8 productos
+            for (let i = 0; i < selectedProductsData.length; i += 8) {
+                pages.push(selectedProductsData.slice(i, i + 8));
+            }
+            
+            for (let pageIndex = 0; pageIndex < pages.length; pageIndex++) {
+                if (pageIndex > 0) {
+                    doc.addPage();
+                }
+                
+                const pageProducts = pages[pageIndex];
+                
+                // Header
+                if (configuration.logo) {
+                    try {
+                        doc.addImage(configuration.logo, 'PNG', 15, 15, 40, 25);
+                    } catch (e) {
+                        console.error('Error al agregar logo:', e);
+                    }
+                }
+                
+                doc.setFontSize(20);
+                doc.setTextColor(configuration.primaryColor || '#667eea');
+                doc.text(configuration.catalogTitle, 200, 25, { align: 'right' });
+                
+                if (configuration.catalogSubtitle) {
+                    doc.setFontSize(12);
+                    doc.text(configuration.catalogSubtitle, 200, 32, { align: 'right' });
+                }
+                
+                doc.setFontSize(10);
+                doc.setTextColor(0, 0, 0);
+                doc.text(configuration.companyName, 200, 38, { align: 'right' });
+                
+                // Línea separadora
+                doc.setDrawColor(102, 126, 234);
+                doc.setLineWidth(1);
+                doc.line(15, 45, 195, 45);
+                
+                // Productos (2 columnas x 4 filas)
+                let startY = 55;
+                const colWidth = 85;
+                const rowHeight = 55;
+                
+                for (let i = 0; i < pageProducts.length; i++) {
+                    const product = pageProducts[i];
+                    const col = i % 2;
+                    const row = Math.floor(i / 2);
+                    
+                    const x = 15 + (col * (colWidth + 10));
+                    const y = startY + (row * rowHeight);
+                    
+                    // Borde del producto
+                    doc.setDrawColor(224, 224, 224);
+                    doc.setLineWidth(0.5);
+                    doc.rect(x, y, colWidth, rowHeight - 5);
+                    
+                    // Imagen del producto
+                    if (product.image) {
+                        try {
+                            doc.addImage(product.image, 'PNG', x + 5, y + 5, 30, 30);
+                        } catch (e) {
+                            console.error('Error al agregar imagen de producto:', e);
+                            doc.setFontSize(30);
+                            doc.text('📦', x + 15, y + 25);
+                        }
+                    } else {
+                        doc.setFontSize(30);
+                        doc.text('📦', x + 15, y + 25);
+                    }
+                    
+                    // Información del producto
+                    doc.setFontSize(11);
+                    doc.setFont(undefined, 'bold');
+                    doc.text(product.descripcion, x + 40, y + 12, { maxWidth: 40 });
+                    
+                    doc.setFontSize(9);
+                    doc.setFont(undefined, 'normal');
+                    doc.setTextColor(100, 100, 100);
+                    doc.text(`Cód: ${product.codigo}`, x + 40, y + 25);
+                    
+                    if (configuration.showPrices === 'yes') {
+                        doc.setFontSize(14);
+                        doc.setFont(undefined, 'bold');
+                        doc.setTextColor(76, 175, 80);
+                        doc.text(`$${product.precio.toLocaleString('es-AR')}`, x + 40, y + 35);
+                    }
+                    
+                    doc.setTextColor(0, 0, 0);
+                }
+                
+                // Footer
+                doc.setDrawColor(224, 224, 224);
+                doc.setLineWidth(0.5);
+                doc.line(15, 275, 195, 275);
+                
+                doc.setFontSize(8);
+                doc.setTextColor(100, 100, 100);
+                const footerText = `${configuration.companyAddress || ''} ${configuration.companyWebsite ? `• ${configuration.companyWebsite}` : ''} ${configuration.companyEmail ? `• ${configuration.companyEmail}` : ''}`;
+                doc.text(footerText, 105, 280, { align: 'center' });
+                doc.text(`Página ${pageIndex + 1} de ${pages.length}`, 105, 285, { align: 'center' });
+            }
+            
+            // Guardar como blob para compartir
+            generatedPdfBlob = doc.output('blob');
+            
+            return doc;
+        }
+        
+        function downloadGeneratedPDF() {
+            if (!generatedPdfBlob) {
+                showToast('⚠️ Genera el PDF primero', 'error');
+                return;
+            }
+            
+            const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+            const url = URL.createObjectURL(generatedPdfBlob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+            
+            showToast('✅ PDF descargado', 'success');
+        }
+        
+        // ========================================
+        // INICIALIZACIÓN
+        // ========================================
+        
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Sistema de Catálogos Bruzzone - Inicializado');
+            loadConfiguration();
+            updateProductStats();
+            updateCatalogStats();
+            
+            // Event listeners para cerrar modales al hacer click fuera
+            document.getElementById('urlModal').addEventListener('click', (e) => {
+                if (e.target.id === 'urlModal') {
+                    closeUrlModal();
+                }
+            });
+            
+            document.getElementById('whatsappModal').addEventListener('click', (e) => {
+                if (e.target.id === 'whatsappModal') {
+                    closeWhatsAppModal();
+                }
+            });
+            
+            // Cerrar acciones móviles al hacer scroll
+            let scrollTimeout;
+            window.addEventListener('scroll', () => {
+                if (window.innerWidth <= 768) {
+                    const actions = document.getElementById('mobileActions');
+                    if (actions.classList.contains('show')) {
+                        closeMobileActions();
+                    }
+                }
+            });
+            
+            // Detectar clicks fuera de las acciones móviles
+            document.addEventListener('click', (e) => {
+                const actions = document.getElementById('mobileActions');
+                const fab = document.getElementById('whatsappFab');
+                
+                if (actions.classList.contains('show') && 
+                    !actions.contains(e.target) && 
+                    !fab.contains(e.target)) {
+                    closeMobileActions();
+                }
+            });
+        });
+    </script>
+</body>
+</html>
