@@ -76,6 +76,48 @@
         .header-right {
             display: flex;
             gap: 10px;
+            align-items: center;
+        }
+        
+        /* Indicador de sincronización */
+        .sync-indicator {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 15px;
+            background: rgba(255,255,255,0.9);
+            border-radius: 8px;
+            font-size: 0.85em;
+            color: #666;
+            border: 1px solid #e0e0e0;
+        }
+        
+        .sync-indicator.syncing {
+            border-color: #667eea;
+            color: #667eea;
+        }
+        
+        .sync-indicator.synced {
+            border-color: #4caf50;
+            color: #4caf50;
+        }
+        
+        .sync-indicator.error {
+            border-color: #f44336;
+            color: #f44336;
+        }
+        
+        .sync-icon {
+            font-size: 1.2em;
+        }
+        
+        .sync-icon.spinning {
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
         }
         
         /* Tabs */
@@ -907,8 +949,15 @@
                 </div>
             </div>
             <div class="header-right">
+                <div class="sync-indicator" id="syncIndicator">
+                    <span class="sync-icon">☁️</span>
+                    <span id="syncStatus">Local</span>
+                </div>
+                <button class="btn btn-secondary" onclick="previewPDFInNewTab()" title="Abrir PDF en nueva pestaña">
+                    👁️ Ver PDF
+                </button>
                 <button class="btn btn-success" onclick="generatePDF()">
-                    📄 Generar PDF
+                    📄 Descargar PDF
                 </button>
             </div>
         </div>
@@ -1131,9 +1180,14 @@
             <div style="text-align: center; margin-bottom: 30px;">
                 <h2 style="color: #1a1a2e; margin-bottom: 10px;">Vista Previa del Catálogo</h2>
                 <p style="color: #666;">Así se verá tu catálogo al generar el PDF</p>
-                <button class="btn btn-success" onclick="generatePDF()" style="margin-top: 15px;">
-                    📄 Generar PDF Final
-                </button>
+                <div style="display: flex; gap: 10px; justify-content: center; margin-top: 15px; flex-wrap: wrap;">
+                    <button class="btn btn-secondary" onclick="previewPDFInNewTab()">
+                        👁️ Ver PDF en Nueva Pestaña
+                    </button>
+                    <button class="btn btn-success" onclick="generatePDF()">
+                        📄 Descargar PDF
+                    </button>
+                </div>
             </div>
             
             <div id="previewContainer" class="catalog-preview">
@@ -1183,6 +1237,9 @@
         </button>
         <button class="mobile-action-btn share" onclick="shareViaSystem()" title="Compartir">
             📤
+        </button>
+        <button class="mobile-action-btn" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);" onclick="previewPDFInNewTab()" title="Ver PDF">
+            👁️
         </button>
         <button class="mobile-action-btn download" onclick="generatePDF()" title="Descargar PDF">
             📄
@@ -1274,6 +1331,10 @@
         const db = firebase.firestore();
         const storage = firebase.storage();
         
+        console.log('🔥 Firebase inicializado correctamente');
+        console.log('☁️ Firebase Storage disponible');
+        console.log('📊 Firestore disponible');
+        
         // ========================================
         // FUNCIONES DE NAVEGACIÓN
         // ========================================
@@ -1325,7 +1386,7 @@
         }
         
         // ========================================
-        // CONFIGURACIÓN
+        // FUNCIONES DE CONFIGURACIÓN
         // ========================================
         
         function saveConfiguration() {
@@ -1339,31 +1400,127 @@
             configuration.primaryColor = document.getElementById('primaryColor').value;
             configuration.showPrices = document.getElementById('showPrices').value;
             
-            // Guardar en localStorage
+            // Guardar localmente primero
             localStorage.setItem('catalogConfig', JSON.stringify(configuration));
             
-            showToast('✅ Configuración guardada correctamente', 'success');
+            // Guardar en Firebase
+            saveConfigurationToFirebase();
         }
         
-        function loadConfiguration() {
+        async function saveConfigurationToFirebase() {
+            try {
+                updateSyncIndicator('syncing', 'Guardando...');
+                showToast('☁️ Guardando en la nube...', 'success');
+                
+                const configData = {
+                    companyName: configuration.companyName,
+                    companyPhone: configuration.companyPhone,
+                    companyEmail: configuration.companyEmail,
+                    companyAddress: configuration.companyAddress,
+                    companyWebsite: configuration.companyWebsite,
+                    catalogTitle: configuration.catalogTitle,
+                    catalogSubtitle: configuration.catalogSubtitle,
+                    primaryColor: configuration.primaryColor,
+                    showPrices: configuration.showPrices,
+                    logoUrl: configuration.logoUrl || null,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                };
+                
+                await db.collection('catalogoConfig').doc('principal').set(configData, { merge: true });
+                
+                console.log('✅ Configuración guardada en Firebase');
+                updateSyncIndicator('synced', 'Guardado');
+                showToast('✅ Configuración guardada en la nube', 'success');
+                
+            } catch (error) {
+                console.error('❌ Error al guardar configuración en Firebase:', error);
+                updateSyncIndicator('error', 'Error al guardar');
+                showToast('⚠️ Guardado local OK, pero falló sincronización con nube', 'error');
+            }
+        }
+        
+        async function loadConfiguration() {
+            try {
+                updateSyncIndicator('syncing', 'Cargando...');
+                
+                // Intentar cargar desde Firebase primero
+                console.log('☁️ Cargando configuración desde Firebase...');
+                const doc = await db.collection('catalogoConfig').doc('principal').get();
+                
+                if (doc.exists) {
+                    const data = doc.data();
+                    console.log('✅ Configuración encontrada en Firebase');
+                    
+                    configuration = {
+                        companyName: data.companyName || 'Bruzzone Distribuidora',
+                        companyPhone: data.companyPhone || '',
+                        companyEmail: data.companyEmail || '',
+                        companyAddress: data.companyAddress || 'Dr. Carlos Rocha 128, Alejandro Roca, Córdoba',
+                        companyWebsite: data.companyWebsite || '',
+                        catalogTitle: data.catalogTitle || 'Catálogo de Productos',
+                        catalogSubtitle: data.catalogSubtitle || '',
+                        primaryColor: data.primaryColor || '#667eea',
+                        showPrices: data.showPrices || 'yes',
+                        logo: null,
+                        logoUrl: data.logoUrl || null
+                    };
+                    
+                    // Si hay logo en Firebase, descargarlo
+                    if (data.logoUrl) {
+                        configuration.logo = data.logoUrl;
+                        document.getElementById('logoPreview').src = data.logoUrl;
+                        document.getElementById('logoPreviewContainer').style.display = 'block';
+                    }
+                    
+                    // Actualizar campos del formulario
+                    updateConfigurationForm();
+                    
+                    // Guardar también localmente como backup
+                    localStorage.setItem('catalogConfig', JSON.stringify(configuration));
+                    
+                    updateSyncIndicator('cloud', 'En la nube');
+                    showToast('✅ Configuración cargada desde la nube', 'success');
+                    
+                } else {
+                    // Si no hay en Firebase, intentar cargar desde localStorage
+                    console.log('ℹ️ No hay configuración en Firebase, cargando desde localStorage...');
+                    loadConfigurationFromLocalStorage();
+                    updateSyncIndicator('local', 'Solo local');
+                }
+                
+            } catch (error) {
+                console.error('⚠️ Error al cargar desde Firebase:', error);
+                // Fallback a localStorage
+                loadConfigurationFromLocalStorage();
+                updateSyncIndicator('error', 'Error al cargar');
+            }
+        }
+        
+        function loadConfigurationFromLocalStorage() {
             const saved = localStorage.getItem('catalogConfig');
             if (saved) {
                 configuration = JSON.parse(saved);
-                
-                document.getElementById('companyName').value = configuration.companyName || '';
-                document.getElementById('companyPhone').value = configuration.companyPhone || '';
-                document.getElementById('companyEmail').value = configuration.companyEmail || '';
-                document.getElementById('companyAddress').value = configuration.companyAddress || '';
-                document.getElementById('companyWebsite').value = configuration.companyWebsite || '';
-                document.getElementById('catalogTitle').value = configuration.catalogTitle || '';
-                document.getElementById('catalogSubtitle').value = configuration.catalogSubtitle || '';
-                document.getElementById('primaryColor').value = configuration.primaryColor || '#667eea';
-                document.getElementById('showPrices').value = configuration.showPrices || 'yes';
-                
-                if (configuration.logo) {
-                    document.getElementById('logoPreview').src = configuration.logo;
-                    document.getElementById('logoPreviewContainer').style.display = 'block';
-                }
+                updateConfigurationForm();
+                console.log('✅ Configuración cargada desde localStorage');
+            } else {
+                console.log('ℹ️ No hay configuración guardada, usando valores por defecto');
+            }
+        }
+        
+        function updateConfigurationForm() {
+            document.getElementById('companyName').value = configuration.companyName || '';
+            document.getElementById('companyPhone').value = configuration.companyPhone || '';
+            document.getElementById('companyEmail').value = configuration.companyEmail || '';
+            document.getElementById('companyAddress').value = configuration.companyAddress || '';
+            document.getElementById('companyWebsite').value = configuration.companyWebsite || '';
+            document.getElementById('catalogTitle').value = configuration.catalogTitle || '';
+            document.getElementById('catalogSubtitle').value = configuration.catalogSubtitle || '';
+            document.getElementById('primaryColor').value = configuration.primaryColor || '#667eea';
+            document.getElementById('showPrices').value = configuration.showPrices || 'yes';
+            
+            if (configuration.logo || configuration.logoUrl) {
+                document.getElementById('logoPreview').src = configuration.logo || configuration.logoUrl;
+                document.getElementById('logoPreviewContainer').style.display = 'block';
             }
         }
         
@@ -1374,14 +1531,67 @@
         function handleLogoUpload(event) {
             const file = event.target.files[0];
             if (file) {
+                // Validar tamaño (máx 5MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showToast('❌ El archivo es muy grande. Máximo 5MB', 'error');
+                    return;
+                }
+                
+                // Mostrar preview inmediato
                 const reader = new FileReader();
-                reader.onload = function(e) {
-                    configuration.logo = e.target.result;
-                    document.getElementById('logoPreview').src = e.target.result;
+                reader.onload = async function(e) {
+                    const dataUrl = e.target.result;
+                    configuration.logo = dataUrl;
+                    document.getElementById('logoPreview').src = dataUrl;
                     document.getElementById('logoPreviewContainer').style.display = 'block';
-                    showToast('✅ Logo cargado correctamente', 'success');
+                    
+                    // Subir a Firebase Storage
+                    await uploadLogoToFirebase(file, dataUrl);
                 };
                 reader.readAsDataURL(file);
+            }
+        }
+        
+        async function uploadLogoToFirebase(file, dataUrl) {
+            try {
+                showToast('☁️ Subiendo logo a la nube...', 'success');
+                
+                // Crear referencia en Storage
+                const timestamp = Date.now();
+                const fileName = `logo_${timestamp}.${file.name.split('.').pop()}`;
+                const storageRef = storage.ref(`catalogos/logos/${fileName}`);
+                
+                // Subir archivo
+                const snapshot = await storageRef.put(file);
+                console.log('📤 Logo subido a Firebase Storage');
+                
+                // Obtener URL de descarga
+                const downloadURL = await snapshot.ref.getDownloadURL();
+                console.log('🔗 URL del logo:', downloadURL);
+                
+                // Guardar URL en configuración
+                configuration.logoUrl = downloadURL;
+                configuration.logo = downloadURL; // Usar la URL de Firebase
+                
+                // Actualizar en Firestore
+                await db.collection('catalogoConfig').doc('principal').set({
+                    logoUrl: downloadURL,
+                    updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                
+                showToast('✅ Logo guardado en la nube', 'success');
+                console.log('✅ Logo sincronizado con Firebase');
+                
+                // Guardar también localmente como backup
+                localStorage.setItem('catalogConfig', JSON.stringify(configuration));
+                
+            } catch (error) {
+                console.error('❌ Error al subir logo:', error);
+                showToast('⚠️ Logo guardado localmente, pero falló subida a nube', 'error');
+                
+                // Al menos guardarlo localmente
+                configuration.logo = dataUrl;
+                localStorage.setItem('catalogConfig', JSON.stringify(configuration));
             }
         }
         
@@ -1453,7 +1663,7 @@
             input.click();
         }
         
-        function saveProductImage() {
+        async function saveProductImage() {
             const productId = document.getElementById('productSelect').value;
             if (!productId) {
                 showToast('⚠️ Selecciona un producto primero', 'error');
@@ -1466,18 +1676,49 @@
                 return;
             }
             
-            // Buscar el producto y actualizar su imagen
+            // Buscar el producto
             const product = products.find(p => p.id === productId);
-            if (product) {
-                product.image = imageUrl;
+            if (!product) {
+                showToast('❌ Producto no encontrado', 'error');
+                return;
+            }
+            
+            showToast('☁️ Guardando imagen en la nube...', 'success');
+            
+            try {
+                // Si la imagen es una URL de internet o ya está en Firebase, usarla directamente
+                if (imageUrl.startsWith('http://') || imageUrl.startsWith('https://')) {
+                    product.image = imageUrl;
+                } else {
+                    // Si es base64, convertir a blob y subir a Storage
+                    const blob = await fetch(imageUrl).then(r => r.blob());
+                    const fileName = `producto_${productId}_${Date.now()}.jpg`;
+                    const storageRef = storage.ref(`catalogos/productos/${fileName}`);
+                    
+                    const snapshot = await storageRef.put(blob);
+                    const downloadURL = await snapshot.ref.getDownloadURL();
+                    
+                    product.image = downloadURL;
+                    console.log('📤 Imagen subida a Firebase Storage:', downloadURL);
+                }
                 
-                // Guardar en localStorage
+                // Actualizar en Firestore
+                await db.collection('productos').doc(productId).set({
+                    image: product.image,
+                    imageUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                }, { merge: true });
+                
+                console.log('✅ Imagen guardada en Firestore');
+                
+                // Guardar también localmente como backup
                 localStorage.setItem('productImages', JSON.stringify(products));
                 
-                showToast('✅ Imagen guardada correctamente', 'success');
+                showToast('✅ Imagen guardada en la nube', 'success');
                 
-                // Actualizar stats
+                // Actualizar stats y UI
                 updateProductStats();
+                displayProducts();
+                displayCatalogProducts();
                 
                 // Limpiar preview
                 document.getElementById('productImagePreview').src = '';
@@ -1485,6 +1726,39 @@
                 
                 // Mostrar las imágenes actuales del producto
                 showCurrentProductImages(productId);
+                
+            } catch (error) {
+                console.error('❌ Error al guardar imagen:', error);
+                showToast('❌ Error al guardar imagen: ' + error.message, 'error');
+            }
+        }
+        
+        async function removeProductImage(productId) {
+            const product = products.find(p => p.id === productId);
+            if (!product) return;
+            
+            try {
+                showToast('☁️ Eliminando imagen...', 'success');
+                
+                // Eliminar de Firestore
+                await db.collection('productos').doc(productId).update({
+                    image: firebase.firestore.FieldValue.delete(),
+                    imageUpdatedAt: firebase.firestore.FieldValue.serverTimestamp()
+                });
+                
+                // Actualizar localmente
+                product.image = null;
+                localStorage.setItem('productImages', JSON.stringify(products));
+                
+                showToast('✅ Imagen eliminada', 'success');
+                updateProductStats();
+                displayProducts();
+                displayCatalogProducts();
+                document.getElementById('currentProductImages').style.display = 'none';
+                
+            } catch (error) {
+                console.error('❌ Error al eliminar imagen:', error);
+                showToast('❌ Error al eliminar: ' + error.message, 'error');
             }
         }
         
@@ -1574,27 +1848,20 @@
                         descripcion: data.descripcion || data.nombre || data.name || '',
                         precio: data.precioFinal || data.precio || 0,
                         proveedor: data.proveedor || '',
-                        image: data.image || null
+                        image: data.image || null  // ✅ Cargar imagen desde Firebase
                     });
                 });
                 
-                // Cargar imágenes guardadas localmente
-                const savedImages = localStorage.getItem('productImages');
-                if (savedImages) {
-                    const imagesData = JSON.parse(savedImages);
-                    products.forEach(product => {
-                        const saved = imagesData.find(p => p.id === product.id);
-                        if (saved && saved.image) {
-                            product.image = saved.image;
-                        }
-                    });
-                }
+                console.log(`✅ ${products.length} productos cargados (${products.filter(p => p.image).length} con imágenes)`);
+                
+                // Guardar también localmente como backup
+                localStorage.setItem('productImages', JSON.stringify(products));
                 
                 displayProducts();
                 displayCatalogProducts();
                 updateProductStats();
                 
-                showToast(`✅ ${products.length} productos cargados`, 'success');
+                showToast(`✅ ${products.length} productos cargados (${products.filter(p => p.image).length} con imágenes)`, 'success');
                 
             } catch (error) {
                 console.error('❌ Error al cargar productos:', error);
@@ -1620,10 +1887,6 @@ SOLUCIÓN:
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    match /productos/{document=**} {
-      allow read: if true;
-      allow write: if true;
-    }
     match /{document=**} {
       allow read: if true;
       allow write: if true;
@@ -1916,13 +2179,263 @@ Mientras tanto, usaré productos de ejemplo para que pruebes el sistema.`);
             
             showToast('📄 Generando PDF...', 'success');
             
-            const doc = await generatePDFForSharing();
+            try {
+                const doc = await generatePDFForSharing();
+                
+                // Guardar PDF con múltiples métodos fallback
+                const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+                
+                // Método 1: save() normal de jsPDF
+                try {
+                    doc.save(fileName);
+                    showToast('✅ PDF generado correctamente', 'success');
+                    console.log('✅ PDF descargado con método save()');
+                    return;
+                } catch (saveError) {
+                    console.warn('⚠️ Método save() falló, intentando alternativas...', saveError);
+                }
+                
+                // Método 2: Crear blob y descargar manualmente
+                try {
+                    const pdfBlob = doc.output('blob');
+                    const url = URL.createObjectURL(pdfBlob);
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = fileName;
+                    link.style.display = 'none';
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    
+                    // Limpiar URL después de 1 segundo
+                    setTimeout(() => URL.revokeObjectURL(url), 1000);
+                    
+                    showToast('✅ PDF descargado correctamente', 'success');
+                    console.log('✅ PDF descargado con método blob');
+                    return;
+                } catch (blobError) {
+                    console.warn('⚠️ Método blob falló, intentando siguiente...', blobError);
+                }
+                
+                // Método 3: Abrir en nueva ventana
+                try {
+                    const pdfDataUri = doc.output('dataurlstring');
+                    const newWindow = window.open();
+                    if (newWindow) {
+                        newWindow.document.write(`
+                            <html>
+                            <head>
+                                <title>${fileName}</title>
+                                <style>
+                                    body { margin: 0; padding: 0; }
+                                    iframe { border: none; width: 100%; height: 100vh; }
+                                </style>
+                            </head>
+                            <body>
+                                <iframe src="${pdfDataUri}"></iframe>
+                                <scr' + 'ipt>
+                                    // Intentar descargar después de mostrar
+                                    setTimeout(() => {
+                                        const a = document.createElement('a');
+                                        a.href = '${pdfDataUri}';
+                                        a.download = '${fileName}';
+                                        a.click();
+                                    }, 1000);
+                                </scr' + 'ipt>
+                            </body>
+                            </html>
+                        `);
+                        showToast('✅ PDF abierto en nueva ventana. Usa Ctrl+S para guardar', 'success');
+                        console.log('✅ PDF abierto en nueva ventana');
+                        return;
+                    }
+                } catch (windowError) {
+                    console.warn('⚠️ Método ventana falló', windowError);
+                }
+                
+                // Método 4: Mostrar instrucciones de descarga manual
+                alert(`⚠️ DESCARGA MANUAL REQUERIDA
+
+El navegador bloqueó la descarga automática.
+
+SOLUCIÓN 1 - Habilitar descargas:
+1. Mirá la barra de direcciones (arriba)
+2. Buscá un ícono de descarga bloqueada
+3. Hacé clic y permite descargas
+4. Volvé a generar el PDF
+
+SOLUCIÓN 2 - Copiar como Data URI:
+1. Abrí la Consola (F12)
+2. Se copió el PDF al portapapeles
+3. Pegalo en un nuevo archivo .pdf
+
+SOLUCIÓN 3 - Probar otro navegador:
+• Chrome (recomendado)
+• Firefox
+• Edge`);
+                
+                showToast('⚠️ Por favor habilita las descargas en el navegador', 'error');
+                
+            } catch (error) {
+                console.error('❌ Error al generar PDF:', error);
+                showToast('❌ Error al generar PDF: ' + error.message, 'error');
+                
+                alert(`❌ ERROR AL GENERAR PDF
+
+Error: ${error.message}
+
+SOLUCIONES:
+
+1. Verifica que tengas productos seleccionados
+2. Asegúrate de tener conexión a internet (para cargar librería jsPDF)
+3. Prueba refrescar la página (F5)
+4. Prueba en otro navegador (Chrome recomendado)
+5. Revisa la consola (F12) para más detalles`);
+            }
+        }
+        
+        // Función para abrir PDF en nueva pestaña (alternativa a descarga)
+        async function previewPDFInNewTab() {
+            if (selectedProducts.length === 0) {
+                showToast('⚠️ Selecciona al menos un producto para el catálogo', 'error');
+                return;
+            }
             
-            // Guardar PDF
-            const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-            doc.save(fileName);
+            showToast('📄 Generando vista previa...', 'success');
             
-            showToast('✅ PDF generado correctamente', 'success');
+            try {
+                const doc = await generatePDFForSharing();
+                const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
+                
+                // Método 1: Abrir con blob URL
+                try {
+                    const pdfBlob = doc.output('blob');
+                    const url = URL.createObjectURL(pdfBlob);
+                    const newWindow = window.open(url, '_blank');
+                    
+                    if (newWindow) {
+                        newWindow.document.title = fileName;
+                        showToast('✅ PDF abierto en nueva pestaña', 'success');
+                        console.log('✅ PDF abierto en nueva pestaña con blob');
+                        
+                        // Limpiar URL después de 10 segundos
+                        setTimeout(() => URL.revokeObjectURL(url), 10000);
+                        return;
+                    } else {
+                        throw new Error('Ventana bloqueada');
+                    }
+                } catch (blobError) {
+                    console.warn('⚠️ Método blob falló, intentando data URI...', blobError);
+                }
+                
+                // Método 2: Usar data URI
+                try {
+                    const pdfDataUri = doc.output('dataurlstring');
+                    const newWindow = window.open('', '_blank');
+                    
+                    if (newWindow) {
+                        newWindow.document.write(`
+                            <!DOCTYPE html>
+                            <html>
+                            <head>
+                                <title>${fileName}</title>
+                                <meta charset="UTF-8">
+                                <style>
+                                    * { margin: 0; padding: 0; box-sizing: border-box; }
+                                    body { 
+                                        font-family: Arial, sans-serif;
+                                        background: #f0f0f0;
+                                    }
+                                    .header {
+                                        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                                        color: white;
+                                        padding: 15px 20px;
+                                        display: flex;
+                                        justify-content: space-between;
+                                        align-items: center;
+                                        box-shadow: 0 2px 10px rgba(0,0,0,0.2);
+                                    }
+                                    .header h1 {
+                                        font-size: 1.2em;
+                                        margin: 0;
+                                    }
+                                    .btn {
+                                        background: white;
+                                        color: #667eea;
+                                        border: none;
+                                        padding: 10px 20px;
+                                        border-radius: 8px;
+                                        cursor: pointer;
+                                        font-weight: 600;
+                                        transition: all 0.3s;
+                                    }
+                                    .btn:hover {
+                                        transform: translateY(-2px);
+                                        box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+                                    }
+                                    iframe { 
+                                        border: none; 
+                                        width: 100%; 
+                                        height: calc(100vh - 60px);
+                                        background: white;
+                                    }
+                                </style>
+                            </head>
+                            <body>
+                                <div class="header">
+                                    <h1>📄 ${fileName}</h1>
+                                    <button class="btn" onclick="downloadPDF()">⬇️ Descargar PDF</button>
+                                </div>
+                                <iframe src="${pdfDataUri}"></iframe>
+                                <scr' + 'ipt>
+                                    function downloadPDF() {
+                                        const a = document.createElement('a');
+                                        a.href = '${pdfDataUri}';
+                                        a.download = '${fileName}';
+                                        a.click();
+                                    }
+                                    
+                                    // Agregar atajo de teclado Ctrl+S
+                                    document.addEventListener('keydown', (e) => {
+                                        if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                                            e.preventDefault();
+                                            downloadPDF();
+                                        }
+                                    });
+                                </scr' + 'ipt>
+                            </body>
+                            </html>
+                        `);
+                        newWindow.document.close();
+                        showToast('✅ PDF abierto. Usa el botón "Descargar" o Ctrl+S', 'success');
+                        console.log('✅ PDF abierto con data URI');
+                        return;
+                    } else {
+                        throw new Error('Ventana bloqueada');
+                    }
+                } catch (dataUriError) {
+                    console.error('⚠️ Método data URI falló', dataUriError);
+                }
+                
+                // Si todo falla, mostrar instrucciones
+                alert(`⚠️ VENTANAS EMERGENTES BLOQUEADAS
+
+Tu navegador bloqueó la apertura de la nueva ventana.
+
+SOLUCIÓN:
+1. Mirá la barra de direcciones (arriba)
+2. Buscá un ícono de "ventanas emergentes bloqueadas"
+3. Hacé clic y permite ventanas emergentes
+4. Intentá nuevamente
+
+O usa el botón "📄 Descargar PDF" en su lugar.`);
+                
+                showToast('⚠️ Habilita las ventanas emergentes', 'error');
+                
+            } catch (error) {
+                console.error('❌ Error al generar vista previa:', error);
+                showToast('❌ Error: ' + error.message, 'error');
+            }
         }
         
         // ========================================
@@ -1937,6 +2450,70 @@ Mientras tanto, usaré productos de ejemplo para que pruebes el sistema.`);
             setTimeout(() => {
                 toast.classList.remove('show');
             }, 3000);
+        }
+        
+        // ========================================
+        // INDICADOR DE SINCRONIZACIÓN
+        // ========================================
+        
+        function updateSyncIndicator(status, message) {
+            const indicator = document.getElementById('syncIndicator');
+            const statusText = document.getElementById('syncStatus');
+            const icon = indicator.querySelector('.sync-icon');
+            
+            // Remover todas las clases de estado
+            indicator.classList.remove('syncing', 'synced', 'error');
+            icon.classList.remove('spinning');
+            
+            switch(status) {
+                case 'syncing':
+                    indicator.classList.add('syncing');
+                    icon.classList.add('spinning');
+                    icon.textContent = '🔄';
+                    statusText.textContent = message || 'Sincronizando...';
+                    break;
+                    
+                case 'synced':
+                    indicator.classList.add('synced');
+                    icon.textContent = '✅';
+                    statusText.textContent = message || 'Sincronizado';
+                    // Volver a "En la nube" después de 3 segundos
+                    setTimeout(() => {
+                        if (indicator.classList.contains('synced')) {
+                            icon.textContent = '☁️';
+                            statusText.textContent = 'En la nube';
+                        }
+                    }, 3000);
+                    break;
+                    
+                case 'error':
+                    indicator.classList.add('error');
+                    icon.textContent = '⚠️';
+                    statusText.textContent = message || 'Error';
+                    // Volver a "Local" después de 5 segundos
+                    setTimeout(() => {
+                        if (indicator.classList.contains('error')) {
+                            indicator.classList.remove('error');
+                            icon.textContent = '💾';
+                            statusText.textContent = 'Solo local';
+                        }
+                    }, 5000);
+                    break;
+                    
+                case 'local':
+                    icon.textContent = '💾';
+                    statusText.textContent = 'Solo local';
+                    break;
+                    
+                case 'cloud':
+                    icon.textContent = '☁️';
+                    statusText.textContent = 'En la nube';
+                    break;
+                    
+                default:
+                    icon.textContent = '☁️';
+                    statusText.textContent = 'Listo';
+            }
         }
         
         // ========================================
@@ -2237,16 +2814,55 @@ Mientras tanto, usaré productos de ejemplo para que pruebes el sistema.`);
             }
             
             const fileName = `Catalogo_${configuration.companyName.replace(/\s/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
-            const url = URL.createObjectURL(generatedPdfBlob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
             
-            showToast('✅ PDF descargado', 'success');
+            try {
+                // Método 1: Crear link y descargar
+                const url = URL.createObjectURL(generatedPdfBlob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = fileName;
+                a.style.display = 'none';
+                document.body.appendChild(a);
+                a.click();
+                document.body.removeChild(a);
+                
+                // Limpiar después de 1 segundo
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                
+                showToast('✅ PDF descargado', 'success');
+                console.log('✅ PDF descargado exitosamente');
+                
+            } catch (error) {
+                console.error('❌ Error al descargar:', error);
+                
+                // Método 2: Abrir en nueva ventana
+                try {
+                    const url = URL.createObjectURL(generatedPdfBlob);
+                    const newWindow = window.open(url, '_blank');
+                    if (newWindow) {
+                        showToast('✅ PDF abierto en nueva ventana', 'success');
+                        // Limpiar después de 5 segundos
+                        setTimeout(() => URL.revokeObjectURL(url), 5000);
+                    } else {
+                        throw new Error('Ventana bloqueada');
+                    }
+                } catch (windowError) {
+                    console.error('❌ Error al abrir ventana:', windowError);
+                    showToast('⚠️ Habilita las descargas y ventanas emergentes', 'error');
+                    
+                    alert(`⚠️ DESCARGA BLOQUEADA
+
+Tu navegador bloqueó la descarga.
+
+SOLUCIÓN:
+1. Mirá la barra de direcciones (arriba)
+2. Buscá un ícono de "descarga bloqueada" o "pop-up bloqueado"
+3. Hacé clic y permite descargas/ventanas emergentes
+4. Intentá descargar nuevamente
+
+O probá con otro navegador (Chrome recomendado)`);
+                }
+            }
         }
         
         // ========================================
